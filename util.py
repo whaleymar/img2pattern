@@ -1,5 +1,5 @@
 import numpy as np
-import imageio
+from PIL import Image
 import os
 
 def getFiles(path: str) -> list:
@@ -35,15 +35,13 @@ def sanitize(palette: np.ndarray) -> np.ndarray:
 
 def findCol(col:np.ndarray, palette:np.ndarray) -> np.ndarray: # col should be np.array in form [R,G,B], palette should be array of cols
 	# finds the color in "palette" that's closest to "col"
-	# print(col.shape, palette.shape)
-	# distances = np.sum((palette-col)**2, axis=1)
-	distances = np.sum(((palette-col)*np.array([.3, .59, .11]))**2, axis=1)
-	# if np.random.randint(0,100)==0: print(col,palette[np.argmin(distances)])
+	distances = np.sum(((palette-col)*np.array([.299, .587, .114]))**2, axis=1)
 	return palette[np.argmin(distances)]
 
 def getPNG(path: str) -> np.ndarray:
-	# returns numpy array of image using imageio
-	return imageio.imread(path)
+	# returns numpy array of image
+	result = np.array(Image.open(path).convert("RGBA"))
+	return result
 
 def readPalette(filepath: str) -> np.ndarray:
 	# reads palette from disk
@@ -61,25 +59,20 @@ def palettize(img: np.ndarray, palette: np.ndarray) -> np.ndarray:
 
 	return recolored
 
+def crop(img:np.ndarray) -> np.ndarray:
+	# crops image to remove empty space
 
+	mask = ~img[:,:,3]==0
+	filledrows = np.argwhere(np.sum(mask, axis=1)).reshape(-1) # row indexes with non-transparent pixels
+	filledcols = np.argwhere(np.sum(mask, axis=0)).reshape(-1) # col indexes with  "       "        "
+	l = np.min(filledrows)
+	r = np.max(filledrows)+1
+	t = np.min(filledcols)
+	b = np.max(filledcols)+1
 
-# def main(RP_path, palette_file, dest_name):
-# 	palette = readPalette(palette_file)
-# 	dest_path = make_directory_skeleton(RP_path,dest_name)
-# 	textures_path = os.path.join(RP_path, "assets/minecraft/textures")
-# 	convert_textures(textures_path, dest_path, palette) # textures_path and dest_path start in same relative location
-
-
-# if __name__=="__main__":
-# 	# f = 'cobblestone.png'
-# 	# p = "textures/block"
-# 	# dp = "testing"
-# 	# palette=readPalette("palette.txt")
-# 	# palettize(f,p,dp,palette)
-# 	parser = argparse.ArgumentParser()
-# 	parser.add_argument("--RP_path",type=str,default="DefaultTP", help="path to texture pack you're palettizing (default: 'DefaultTP' (default MC texture pack))")
-# 	parser.add_argument("--palette_file",type=str,default="palette.txt", help="palette file name")
-# 	parser.add_argument("--rec_pack_name",type=str, default="New Texture Pack",help="name of your palettized resource pack (Default: 'New Texture Pack')")
-# 	args = parser.parse_args()
-
-# 	main(args.RP_path,args.palette_file,args.rec_pack_name)
+	w = r-l
+	h = b-t
+	bufy = 0 if w>=h else h-w
+	bufx = 0 if h>=w else w-h
+	return img[l:r+bufy, 
+			   t:b+bufx, :]
